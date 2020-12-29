@@ -351,55 +351,33 @@ func dualWritePrevBlockAnyMissing(prevBlock *block, inserts *WriteBatch) error {
 	}
 
 	prevBlock.RLock()
+	prevBlockStart := xtime.ToUnixNano(prevBlock.blockStart)
 	prevMutableSegments := prevBlock.mutableSegments
+	docsPool := prevBlock.opts.DocumentArrayPool()
 	prevBlock.RUnlock()
 
-	if prevMutableSegments == nil {
+	if prevMutableSegments == nil || !prevMutableSegments.IsOpen() {
 		return nil
 	}
 
-	var (
-		docsPool         = prevBlock.opts.DocumentArrayPool()
-		batch            = docsPool.Get()[:0]
-		completedBatches [][]doc.Document
-	)
-	defer func() {
-		docsPool.Put(batch)
-		for _, b := range completedBatches {
-			docsPool.Put(b)
-		}
-	}()
+	batch := docsPool.Get()[:0]
+	defer docsPool.Put(batch)
 
-	collectErr := func() error {
-		prevMutableSegments.RLock()
-		defer prevMutableSegments.RUnlock()
-
-		if !prevMutableSegments.isOpenWithRLock() {
-			return nil
+	entries := inserts.PendingEntries()
+	pending := inserts.PendingDocs()
+	for i := range pending {
+		if entries[i].OnIndexSeries.IndexedForBlockStart(prevBlockStart) {
+			continue // Already indexed for previous block.
 		}
 
-		pending := inserts.PendingDocs()
-		for i := range pending {
-			exists, err := prevMutableSegments.containsIDWithRLock(pending[i].ID)
-			if err != nil {
+		if len(batch) == cap(batch) {
+			if _, err := prevMutableSegments.writeDocs(batch); err != nil {
 				return err
 			}
-			if exists {
-				continue // Already
-			}
-
-			if len(batch) == cap(batch) {
-				completedBatches = append(completedBatches, batch)
-				batch = docsPool.Get()[:0]
-			}
-
-			batch = append(batch, pending[i])
+			batch = batch[:0]
 		}
 
-		return nil
-	}()
-	if collectErr != nil {
-		return collectErr
+		batch = append(batch, pending[i])
 	}
 
 	if len(batch) > 0 {
@@ -407,12 +385,6 @@ func dualWritePrevBlockAnyMissing(prevBlock *block, inserts *WriteBatch) error {
 			return err
 		}
 	}
-	for _, b := range completedBatches {
-		if _, err := prevMutableSegments.writeDocs(b); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 

@@ -345,6 +345,10 @@ type OnIndexSeries interface {
 	// Further, every call to NeedsIndexUpdate which returns true needs to have a corresponding
 	// OnIndexFinalze() call. This is required for correct lifecycle maintenance.
 	NeedsIndexUpdate(indexBlockStartForWrite xtime.UnixNano) bool
+
+	// IndexedForBlockStart determines whether this series has been successfully
+	// indexed or not.
+	IndexedForBlockStart(indexBlockStart xtime.UnixNano) bool
 }
 
 // Block represents a collection of segments. Each `Block` is a complete reverse
