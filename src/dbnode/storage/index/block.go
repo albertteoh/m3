@@ -458,20 +458,22 @@ func (b *block) segmentReadersWithRLock() ([]segment.Reader, error) {
 		}
 	}()
 
-	usingPrevBlockMutableSegments := false
+	var (
+		prevBlockOpen    bool
+		prevBlockReaders []segment.Reader
+	)
 	if b.prevBlock != nil {
+		// If previous block is set, check if it's still open or not
+		// and if so we can serve the query from it (since we keep it up
+		// to date while the mutable segments are still open).
 		b.prevBlock.RLock()
-		if b.prevBlock.mutableSegments != nil {
-			b.prevBlock.mutableSegments.RLock()
-			if b.prevBlock.mutableSegments.isOpenWithRLock() {
-				b.metrics.prevBlockQuery.Inc(1)
-				// Mark the fact that we are going to search previous blocks
-				// mutable segments not and not the local block's mutable segments.
-				usingPrevBlockMutableSegments = true
-				// Use segments from the prev block.
-				readers, err = b.prevBlock.mutableSegments.addReadersWithLock(readers)
-			}
-			b.prevBlock.mutableSegments.RUnlock()
+		if b.prevBlock.mutableSegments != nil && b.prevBlock.mutableSegments.IsOpen() {
+			b.metrics.prevBlockQuery.Inc(1)
+			// Mark the fact that we are going to search previous blocks
+			// mutable segments not and not the local block's mutable segments.
+			prevBlockOpen = true
+			// Use segments from the prev block.
+			prevBlockReaders, err = b.prevBlock.segmentReadersWithRLock()
 		}
 		b.prevBlock.RUnlock()
 		// Check error out of lock/unlock.
@@ -479,13 +481,16 @@ func (b *block) segmentReadersWithRLock() ([]segment.Reader, error) {
 			return nil, err
 		}
 	}
-
-	if !usingPrevBlockMutableSegments {
+	if !prevBlockOpen {
 		// Add mutable segments.
 		readers, err = b.mutableSegments.AddReaders(readers)
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		// The previous block is open, use those readers instead
+		// of the potentially volatile current mutable segments.
+		readers = append(readers, prevBlockReaders...)
 	}
 
 	// Add cold mutable segments.
