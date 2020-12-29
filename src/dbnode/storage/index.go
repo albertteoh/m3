@@ -1911,6 +1911,14 @@ func (i *nsIndex) ensureBlockPresentWithRLock(blockStart time.Time) (blockPresen
 		return blockPresentResult{}, i.unableToAllocBlockInvariantError(err)
 	}
 
+	// Set the previous block to enable block rotation optimization.
+	if len(i.state.blocksDescOrderImmutable) > 0 {
+		prevLatestBlock := i.state.blocksDescOrderImmutable[0].block
+		if err := block.SetPreviousBlock(prevLatestBlock); err != nil {
+			return blockPresentResult{}, i.unableToAllocBlockInvariantError(err)
+		}
+	}
+
 	// NB(bodu): Use same time barrier as `Tick` to make sealing of cold index blocks consistent.
 	// We need to seal cold blocks write away for cold writes.
 	if !blockStart.After(i.lastSealableBlockStart(i.nowFn())) {

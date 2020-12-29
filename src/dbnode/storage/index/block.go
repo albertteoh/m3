@@ -148,6 +148,16 @@ type block struct {
 	docsLimit                       limits.LookbackLimit
 	querySegmentsWorkers            xsync.WorkerPool
 
+	// prevBlock is a reference to the previous block preceeding this block
+	// start.
+	// This is an optimization which should be easy to remove later that
+	// uses the previous block to index any new metrics not seen by it
+	// until it is unloaded from memory.
+	// This allows queries to be executed against a much more mature
+	// index segment for reads until it's unloaded from memory, at which
+	// point reads start to execute against this segment.
+	prevBlock *block
+
 	metrics blockMetrics
 	logger  *zap.Logger
 }
@@ -159,6 +169,9 @@ type blockMetrics struct {
 	segmentFreeMmapSuccess          tally.Counter
 	segmentFreeMmapError            tally.Counter
 	segmentFreeMmapSkipNotImmutable tally.Counter
+	prevBlockDualWriteSuccess       tally.Counter
+	prevBlockDualWriteErrors        tally.Counter
+	prevBlockQuery                  tally.Counter
 }
 
 func newBlockMetrics(s tally.Scope) blockMetrics {
@@ -180,6 +193,13 @@ func newBlockMetrics(s tally.Scope) blockMetrics {
 			"result":    "skip",
 			"skip_type": "not-immutable",
 		}).Counter(segmentFreeMmap),
+		prevBlockDualWriteSuccess: s.Tagged(map[string]string{
+			"result": "success",
+		}).Counter("prev-block-dual-write"),
+		prevBlockDualWriteErrors: s.Tagged(map[string]string{
+			"result": "error",
+		}).Counter("prev-block-dual-write"),
+		prevBlockQuery: s.Counter("prev-block-query"),
 	}
 }
 
@@ -264,6 +284,20 @@ func NewBlock(
 	return b, nil
 }
 
+func (b *block) SetPreviousBlock(prevBlock Block) error {
+	prev, ok := prevBlock.(*block)
+	if !ok {
+		return fmt.Errorf("prev block is not type block")
+	}
+
+	b.Lock()
+	defer b.Unlock()
+
+	b.prevBlock = prev
+
+	return nil
+}
+
 func (b *block) StartTime() time.Time {
 	return b.blockStart
 }
@@ -275,9 +309,9 @@ func (b *block) EndTime() time.Time {
 func (b *block) WriteBatch(inserts *WriteBatch) (WriteBatchResult, error) {
 	b.RLock()
 	if !b.writesAcceptedWithRLock() {
+		err := b.writeBatchErrorInvalidState(b.state)
 		b.RUnlock()
-		return b.writeBatchResult(inserts, MutableSegmentsStats{},
-			b.writeBatchErrorInvalidState(b.state))
+		return b.writeBatchResult(inserts, MutableSegmentsStats{}, err)
 	}
 	if b.state == blockStateSealed {
 		coldBlock := b.coldMutableSegments[len(b.coldMutableSegments)-1]
@@ -287,9 +321,99 @@ func (b *block) WriteBatch(inserts *WriteBatch) (WriteBatchResult, error) {
 		// we only care about warm mutable segments stats.
 		return b.writeBatchResult(inserts, MutableSegmentsStats{}, err)
 	}
+	prevBlock := b.prevBlock
 	b.RUnlock()
+
+	if prevBlock != nil {
+		// If prev block still has mutable data we write any data that's
+		// pending there since queries will be served from there until
+		// not in memory anymore.
+		if err := dualWritePrevBlockAnyMissing(prevBlock, inserts); err != nil {
+			// Ignore dual write error but emit metric and do not query from
+			// the previous block any more.
+			b.Lock()
+			b.prevBlock = nil
+			b.Unlock()
+			b.logger.Debug("could not insert dual write prev block", zap.Error(err))
+			b.metrics.prevBlockDualWriteErrors.Inc(1)
+		} else {
+			b.metrics.prevBlockDualWriteSuccess.Inc(1)
+		}
+	}
+
 	stats, err := b.mutableSegments.WriteBatch(inserts)
 	return b.writeBatchResult(inserts, stats, err)
+}
+
+func dualWritePrevBlockAnyMissing(prevBlock *block, inserts *WriteBatch) error {
+	if prevBlock == nil {
+		return nil
+	}
+
+	prevBlock.RLock()
+	prevMutableSegments := prevBlock.mutableSegments
+	prevBlock.RUnlock()
+
+	if prevMutableSegments == nil {
+		return nil
+	}
+
+	var (
+		docsPool         = prevBlock.opts.DocumentArrayPool()
+		batch            = docsPool.Get()[:0]
+		completedBatches [][]doc.Document
+	)
+	defer func() {
+		docsPool.Put(batch)
+		for _, b := range completedBatches {
+			docsPool.Put(b)
+		}
+	}()
+
+	collectErr := func() error {
+		prevMutableSegments.RLock()
+		defer prevMutableSegments.RUnlock()
+
+		if !prevMutableSegments.isOpenWithRLock() {
+			return nil
+		}
+
+		pending := inserts.PendingDocs()
+		for i := range pending {
+			exists, err := prevMutableSegments.containsIDWithRLock(pending[i].ID)
+			if err != nil {
+				return err
+			}
+			if exists {
+				continue // Already
+			}
+
+			if len(batch) == cap(batch) {
+				completedBatches = append(completedBatches, batch)
+				batch = docsPool.Get()[:0]
+			}
+
+			batch = append(batch, pending[i])
+		}
+
+		return nil
+	}()
+	if collectErr != nil {
+		return collectErr
+	}
+
+	if len(batch) > 0 {
+		if _, err := prevMutableSegments.writeDocs(batch); err != nil {
+			return err
+		}
+	}
+	for _, b := range completedBatches {
+		if _, err := prevMutableSegments.writeDocs(b); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (b *block) writeBatchResult(
@@ -362,10 +486,34 @@ func (b *block) segmentReadersWithRLock() ([]segment.Reader, error) {
 		}
 	}()
 
-	// Add mutable segments.
-	readers, err = b.mutableSegments.AddReaders(readers)
-	if err != nil {
-		return nil, err
+	usingPrevBlockMutableSegments := false
+	if b.prevBlock != nil {
+		b.prevBlock.RLock()
+		if b.prevBlock.mutableSegments != nil {
+			b.prevBlock.mutableSegments.RLock()
+			if b.prevBlock.mutableSegments.isOpenWithRLock() {
+				b.metrics.prevBlockQuery.Inc(1)
+				// Mark the fact that we are going to search previous blocks
+				// mutable segments not and not the local block's mutable segments.
+				usingPrevBlockMutableSegments = true
+				// Use segments from the prev block.
+				readers, err = b.prevBlock.mutableSegments.addReadersWithLock(readers)
+			}
+			b.prevBlock.mutableSegments.RUnlock()
+		}
+		b.prevBlock.RUnlock()
+		// Check error out of lock/unlock.
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if !usingPrevBlockMutableSegments {
+		// Add mutable segments.
+		readers, err = b.mutableSegments.AddReaders(readers)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Add cold mutable segments.
@@ -1120,14 +1268,14 @@ func (b *block) Stats(reporter BlockStatsReporter) error {
 	return nil
 }
 
-func (b *block) IsSealedWithRLock() bool {
+func (b *block) sealedWithRLock() bool {
 	return b.state == blockStateSealed
 }
 
 func (b *block) IsSealed() bool {
 	b.RLock()
 	defer b.RUnlock()
-	return b.IsSealedWithRLock()
+	return b.sealedWithRLock()
 }
 
 func (b *block) NeedsMutableSegmentsEvicted() bool {

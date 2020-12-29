@@ -423,6 +423,10 @@ type Block interface {
 	// MemorySegmentsData returns all in memory segments data.
 	MemorySegmentsData(ctx context.Context) ([]fst.SegmentData, error)
 
+	// SetPreviousBlock will set the previous block prior to this allocated
+	// block.
+	SetPreviousBlock(prevBlock Block) error
+
 	// Close will release any held resources and close the Block.
 	Close() error
 }
