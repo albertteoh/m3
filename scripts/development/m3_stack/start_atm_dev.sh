@@ -2,6 +2,13 @@
 
 set -xe
 
+
+if go version; then
+    echo "Go is installed, let's proceed!"
+else
+    echo "Please install Go"
+fi
+
 pushd ../../../
 make install-vendor-m3
 popd
