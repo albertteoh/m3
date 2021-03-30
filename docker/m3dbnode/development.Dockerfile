@@ -3,7 +3,7 @@ LABEL maintainer="The M3DB Authors <m3db@googlegroups.com>"
 
 ENV GODEBUG madvdontneed=1
 
-RUN apk add --no-cache curl jq
+RUN apk add --update --no-cache curl jq
 
 # Add m3dbnode binary
 ADD ./m3dbnode /bin/m3dbnode
