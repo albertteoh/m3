@@ -1,13 +1,4 @@
 db:
-  tracing:
-    backend: jaeger
-    jaeger:
-      reporter:
-        localAgentHostPort: jaeger:6831
-      sampler:
-        type: const
-        param: 1
-
   hostID:
     resolver: environment
     envVarName: M3DB_HOST_ID

@@ -17,7 +17,7 @@ The environment variables that let's you configure this setup are:
 
 ## Usage
 
-Use the `start_m3.sh` and `stop_m3.sh` scripts. Requires successful run of `make m3dbnode` from project root first.
+Use the `start_m3_atm.sh` and `stop_m3_atm.sh` scripts. Requires successful run of `make m3dbnode` from project root first.
 
 ## Grafana
 
@@ -25,10 +25,10 @@ Use Grafana by navigating to `http://localhost:3000` and using `admin` for both 
 
 ## Jaeger
 
-To start Jaeger, you need to set the environment variable `USE_JAEGER` to `true` when you run `start_m3.sh`.
+To start Jaeger, you need to set the environment variable `USE_JAEGER` to `true` when you run `start_m3_atm.sh`.
 
 ```
-USE_JAEGER=true ./start_m3.sh
+USE_JAEGER=true ./start_m3_atm.sh
 ```
 
 To modify the sampling rate, etc. you can modify the following in your `m3dbnode.yml` file under `db`:

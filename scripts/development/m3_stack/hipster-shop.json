@@ -1,0 +1,207 @@
+{
+  "topology" : {
+    "services" : [
+      {
+        "serviceName" : "frontend",
+        "instances" : [ "frontend-6b654dbf57-zq8dt", "frontend-d847fdcf5-j6s2f", "frontend-79d8c8d6c8-9sbff" ],
+        "tagSets" : [{ "tags": { "span.kind" : "server", "userId": "12345" }}],
+        "routes" : [
+          {
+            "route" : "/product",
+            "downstreamCalls" : { "productcatalogservice" : "/GetProducts", "recommendationservice" : "/GetRecommendations", "adservice" : "/AdRequest" },
+            "maxLatencyMillis": 200,
+            "tagSets": [ { "weight": 1, "tags": { "span.kind" : "client"}} ]
+          },
+          {
+            "route" : "/cart",
+            "downstreamCalls" : { "cartservice" : "/GetCart", "recommendationservice" : "/GetRecommendations" },
+            "maxLatencyMillis" : 100,
+            "tagSets": [ { "weight": 1, "tags": { "span.kind" : "client"}} ]
+          },
+          {
+            "route" : "/checkout",
+            "downstreamCalls" : { "checkoutservice" : "/PlaceOrder" },
+            "maxLatencyMillis" : 800,
+            "tagSets": [ { "weight": 1, "tags": { "span.kind" : "client"}} ]
+          },
+          {
+            "route" : "/shipping",
+            "downstreamCalls" : { "shippingservice" : "/GetQuote" },
+            "maxLatencyMillis" : 50,
+            "tagSets": [ { "weight": 1, "tags": { "span.kind" : "client"}} ]
+          },
+          {
+            "route" : "/currency",
+            "downstreamCalls" : { "currencyservice" : "/GetConversion" },
+            "maxLatencyMillis" : 50,
+            "tagSets": [ { "weight": 1, "tags": { "span.kind" : "client"}} ]
+          }
+        ]
+      },
+      {
+        "serviceName" : "productcatalogservice",
+        "instances" : [ "productcatalogservice-6b654dbf57-zq8dt", "productcatalogservice-d847fdcf5-j6s2f" ],
+        "tagSets" : [{ "tags": { "span.kind" : "server" }}],
+        "routes" : [
+          {
+            "route" : "/GetProducts",
+            "downstreamCalls" : { },
+            "maxLatencyMillis" : 100,
+            "tagSets": [ { "weight": 1, "tags": { "span.kind" : "client"}} ]
+          },
+          {
+            "route" : "/SearchProducts",
+            "downstreamCalls" : { },
+            "maxLatencyMillis" : 400,
+            "tagSets": [ { "weight": 1, "tags": { "span.kind" : "client"}} ]
+          }
+        ]
+      },
+      {
+        "serviceName" : "recommendationservice",
+        "instances" : [ "recommendationservice-6b654dbf57-zq8dt", "recommendationservice-d847fdcf5-j6s2f" ],
+        "tagSets" : [{ "tags": { "span.kind" : "server" }}],
+        "routes" : [
+          {
+            "route" : "/GetRecommendations",
+            "downstreamCalls" : { "productcatalogservice" : "/GetProducts" },
+            "maxLatencyMillis" : 200,
+            "tagSets": [ { "weight": 1, "tags": { "span.kind" : "client"}} ]
+          }
+        ]
+      },
+      {
+        "serviceName" : "cartservice",
+        "instances" : [ "cartservice-6b654dbf57-zq8dt", "cartservice-d847fdcf5-j6s2f" ],
+        "tagSets" : [{ "tags": { "span.kind" : "server" }}],
+        "routes" : [
+          {
+            "route" : "/GetCart",
+            "downstreamCalls" : { },
+            "maxLatencyMillis" : 200
+          }
+        ]
+      },
+      {
+        "serviceName" : "checkoutservice",
+        "instances" : [ "checkoutservice-6b654dbf57-zq8dt", "checkoutservice-d847fdcf5-j6s2f" ],
+        "tagSets" : [{ "tags": { "span.kind" : "server" }}],
+        "routes" : [
+          {
+            "route" : "/PlaceOrder",
+            "downstreamCalls" : { "paymentservice" : "/CreditCardInfo", "shippingservice" : "/Address", "currencyservice" : "/GetConversion", "cartservice" : "/GetCart", "emailservice" : "/SendOrderConfirmation" },
+            "tagSets" : [
+              {"weight": 50, "tags": { "error" : true, "http.status_code":  503}},
+              {"weight": 50, "tags":  { "span.kind" : "client" }}
+            ],
+            "maxLatencyMillis" : 500
+          }
+        ]
+      },
+      {
+        "serviceName" : "paymentservice",
+        "instances" : [ "paymentservice-6b654dbf57-zq8dt", "paymentservice-d847fdcf5-j6s2f" ],
+        "tagSets" : [{ "tags": { "span.kind" : "server" }}],
+        "routes" : [
+          {
+            "route" : "/ChargeRequest",
+            "downstreamCalls" : { "paymentservice" : "/CreditCardInfo" },
+            "maxLatencyMillis" : 700,
+            "tagSets": [ { "weight": 1, "tags": { "span.kind" : "client"}} ]
+          },
+          {
+            "route" : "/CreditCardInfo",
+            "downstreamCalls" : { },
+            "maxLatencyMillis" : 50
+          }
+        ]
+      },
+      {
+        "serviceName" : "shippingservice",
+        "instances" : [ "shippingservice-6b654dbf57-zq8dt", "shippingservice-d847fdcf5-j6s2f" ],
+        "tagSets" : [{ "tags": { "span.kind" : "server" }}],
+        "routes" : [
+          {
+            "route" : "/GetQuote",
+            "downstreamCalls" : { "shippingservice" : "/Address" },
+            "maxLatencyMillis" : 250,
+            "tagSets": [ { "weight": 1, "tags": { "span.kind" : "client"}} ]
+          },
+          {
+            "route" : "/ShipOrder",
+            "downstreamCalls" : { "shippingservice" : "/Address"},
+            "maxLatencyMillis" : 500,
+            "tagSets": [ { "weight": 1, "tags": { "span.kind" : "client"}} ]
+          },
+          {
+            "route" : "/Address",
+            "downstreamCalls" : { },
+            "maxLatencyMillis" : 100
+          }
+        ]
+      },
+      {
+        "serviceName" : "emailservice",
+        "instances" : [ "emailservice-6b654dbf57-zq8dt", "emailservice-d847fdcf5-j6s2f" ],
+        "tagSets" : [{ "tags": { "span.kind" : "server" }}],
+        "routes" : [
+          {
+            "route" : "/SendOrderConfirmation",
+            "downstreamCalls" : { "emailservice" : "/OrderResult" },
+            "tagSets" : [
+              {"weight": 50, "tags": { "error" : true, "http.status_code":  503}},
+              {"weight": 50, "tags":  { "span.kind" : "client" }}
+            ],
+            "maxLatencyMillis" : 500
+          },
+          {
+            "route" : "/OrderResult",
+            "downstreamCalls" : { },
+            "maxLatencyMillis" : 100
+          }
+        ]
+      },
+      {
+        "serviceName" : "currencyservice",
+        "instances" : [ "currencyservice-6b654dbf57-zq8dt", "currencyservice-d847fdcf5-j6s2f" ],
+        "tagSets" : [{ "tags": { "span.kind" : "server" }}],
+        "routes" : [
+          {
+            "route" : "/GetConversion",
+            "downstreamCalls" : { "currencyservice" : "/Money" },
+            "maxLatencyMillis" : 100
+          },
+          {
+            "route" : "/Money",
+            "downstreamCalls" : { },
+            "maxLatencyMillis" : 100
+          }
+        ]
+      },
+      {
+        "serviceName" : "adservice",
+        "instances" : [ "adservice-6b654dbf57-zq8dt", "adservice-d847fdcf5-j6s2f" ],
+        "tagSets" : [{ "tags": { "span.kind" : "server" }}],
+        "routes" : [
+          {
+            "route" : "/AdRequest",
+            "downstreamCalls" : { },
+            "maxLatencyMillis" : 500
+          },
+          {
+            "route" : "/Ad",
+            "downstreamCalls" : { },
+            "maxLatencyMillis" : 500
+          }
+        ]
+      }
+    ]
+  },
+  "rootRoutes" : [
+    {
+      "service" : "frontend",
+      "route" : "/checkout",
+      "tracesPerHour" : 3600
+    }
+  ]
+}

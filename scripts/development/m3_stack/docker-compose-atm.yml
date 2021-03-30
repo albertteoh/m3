@@ -1,0 +1,77 @@
+version: "3.5"
+services:
+  jaeger_query:
+    networks:
+      - backend
+    image: albteo/jaeger-query
+    environment:
+      - SPAN_STORAGE_TYPE=memory
+      - M3_HOST_PORT=m3coordinator01:7201
+    ports:
+      - "16686:16686"
+  otel_collector:
+    networks:
+      - backend
+    image: otel/opentelemetry-collector-contrib:latest
+    volumes:
+      - "./otelcol-write-local-m3.yaml:/etc/otelcol/otelcol-write-local-m3.yaml"
+    command: --config /etc/otelcol/otelcol-write-local-m3.yaml
+  synthetic_trace_generator:
+    networks:
+      - backend
+    image: omnition/synthetic-load-generator:latest
+    volumes:
+      - "./hipster-shop.json:/etc/synthetic-trace-generator/hipster-shop.json"
+    environment: 
+      - JAEGER_COLLECTOR_URL=http://otel_collector:14278
+      - TOPOLOGY_FILE=/etc/synthetic-trace-generator/hipster-shop.json
+  m3db_seed:
+    networks:
+      - backend
+    build:
+      context: ../../../bin
+      dockerfile: ./docker/m3dbnode/development.Dockerfile
+    image: m3dbnode:dev
+    volumes:
+      - "./m3dbnode.yml:/etc/m3dbnode/m3dbnode.yml"
+      - "./schema.proto:/etc/m3dbnode/schema.proto"
+    environment:
+      - M3DB_HOST_ID=m3db_seed
+    expose:
+      - "2379"
+      - "9002"
+      - "9003"
+      - "9004"
+    ports:
+      - "0.0.0.0:2379:2379"
+      - "0.0.0.0:9002:9002"
+      - "0.0.0.0:9003:9003"
+      - "0.0.0.0:9004:9004"
+    ulimits:
+      nofile:
+        soft: 3000000
+        hard: 3000000
+  m3coordinator01:
+    expose:
+      - "7201"
+      - "7203"
+      - "7204"
+      - "7507"
+    ports:
+      - "0.0.0.0:7201:7201"
+      - "0.0.0.0:7203:7203"
+      - "0.0.0.0:7204:7204"
+      - "0.0.0.0:7507:7507"
+    networks:
+      - backend
+    build:
+      context: ../../../bin
+      dockerfile: ./docker/m3coordinator/development.Dockerfile
+    image: m3coordinator:dev
+    volumes:
+      # Use a git ignored path to easily change pre-set configs.
+      # Note: Use ".tmp" suffix is git ignored.
+      - "./m3coordinator.yml.tmp:/etc/m3coordinator/m3coordinator.yml"
+      - "./schema.proto:/etc/m3coordinator/schema.proto"
+networks:
+  backend:

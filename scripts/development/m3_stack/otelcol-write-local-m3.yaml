@@ -1,0 +1,88 @@
+receivers:
+  prometheus:
+    config:
+      scrape_configs:
+      - job_name: 'atm'
+        scrape_interval: 10s
+        static_configs:
+        - targets: [ "0.0.0.0:8889" ]
+
+  jaeger:
+    protocols:
+      thrift_http:
+        endpoint: "0.0.0.0:14278"
+
+  otlp:
+    protocols:
+      grpc:
+        endpoint: "localhost:55677"
+
+  # Dummy receiver that's never used, because a pipeline is required to have one.
+  otlp/spanmetrics:
+    protocols:
+      grpc:
+        endpoint: "localhost:65535"
+
+exporters:
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+
+  logging:
+    loglevel: info
+
+  zipkin:
+    endpoint: "http://zipkin-all-in-one:9411/api/v2/spans"
+    format: proto
+
+  jaeger:
+    endpoint: "localhost:14250"
+    insecure: true
+
+  prometheusremotewrite:
+    endpoint: "http://m3coordinator01:7201/api/v1/prom/remote/write"
+    insecure: true
+
+  otlp/spanmetrics:
+    endpoint: "localhost:55677"
+    insecure: true
+
+
+# Alternatively, use jaeger_thrift_http with the settings below. In this case
+# update the list of exporters on the traces pipeline.
+#
+#  jaeger_thrift_http:
+#    url: http://jaeger-all-in-one:14268/api/traces
+
+processors:
+  batch:
+  spanmetrics:
+    metrics_exporter: prometheus
+    # default (in ms): [2, 4, 6, 8, 10, 50, 100, 200, 400, 800, 1000, 1400, 2000, 5000, 10_000, 15_000]
+    latency_histogram_buckets: [2ms, 6ms, 10ms, 100ms, 250ms, 300ms, 400ms, 800ms, 1s, 1.4s, 2s, 5s, 15s, 30s, 120s]
+    dimensions:
+    - name: http.method
+      default: GET
+    - name: http.status_code
+
+extensions:
+  health_check:
+  pprof:
+    endpoint: :1888
+  zpages:
+    endpoint: :55679
+
+service:
+  extensions: [pprof, zpages, health_check]
+  pipelines:
+    traces:
+      receivers: [jaeger]
+      processors: [spanmetrics, batch]
+      exporters: [logging]
+    # The exporter name must match the metrics_exporter name.
+    # The receiver is just a dummy and never used; added to pass validation requiring at least one receiver in a pipeline.
+    metrics/spanmetrics:
+      receivers: [otlp/spanmetrics]
+      exporters: [prometheus]
+    metrics:
+      receivers: [prometheus]
+      exporters: [prometheusremotewrite]
