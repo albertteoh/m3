@@ -7,6 +7,7 @@ if go version; then
     echo "Go is installed, let's proceed!"
 else
     echo "Please install Go"
+    exit 1
 fi
 
 pushd ../../../
