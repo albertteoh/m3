@@ -24,7 +24,6 @@ services:
       - "./hipster-shop.json:/etc/synthetic-trace-generator/hipster-shop.json"
     environment: 
       - JAEGER_COLLECTOR_URL=http://otel_collector:14278
-      - TOPOLOGY_FILE=/etc/synthetic-trace-generator/hipster-shop.json
   m3db_seed:
     networks:
       - backend
