@@ -2,6 +2,12 @@
 
 set -xe
 
+pushd ../../../
+make install-vendor-m3
+popd
+
+docker run -it --privileged --pid=host debian nsenter -t 1 -m -u -n -i sh -c "sysctl -w vm.max_map_count=3000000 && sysctl -w vm.swappiness=1 && sysctl -w fs.file-max=3000000 && sysctl -w fs.nr_open=3000000"
+
 source "$(pwd)/../../docker-integration-tests/common.sh"
 
 # Locally don't care if we hot loop faster
