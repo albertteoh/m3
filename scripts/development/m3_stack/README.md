@@ -19,6 +19,16 @@ The environment variables that let's you configure this setup are:
 
 Use the `start_m3_atm.sh` and `stop_m3_atm.sh` scripts. Requires successful run of `make m3dbnode` from project root first.
 
+Then run `./sampl_query.sh` to execute a sample query against jaeger-query and you should see a response like the following:
+```
+{
+  "data": [
+    {
+      "name": "latency",
+      "description": "latency histogram",
+      ...
+```
+
 ## Grafana
 
 Use Grafana by navigating to `http://localhost:3000` and using `admin` for both the username and password. The M3DB dashboard should already be populated and working.
