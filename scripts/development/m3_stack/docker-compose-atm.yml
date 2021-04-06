@@ -16,6 +16,8 @@ services:
     volumes:
       - "./otelcol-write-local-m3.yaml:/etc/otelcol/otelcol-write-local-m3.yaml"
     command: --config /etc/otelcol/otelcol-write-local-m3.yaml
+    ports:
+      - "8889:8889"
   synthetic_trace_generator:
     networks:
       - backend
@@ -24,6 +26,7 @@ services:
       - "./hipster-shop.json:/etc/synthetic-trace-generator/hipster-shop.json"
     environment: 
       - JAEGER_COLLECTOR_URL=http://otel_collector:14278
+      - TOPOLOGY_FILE=/etc/synthetic-trace-generator/hipster-shop.json
   m3db_seed:
     networks:
       - backend

@@ -2,7 +2,6 @@
 
 set -xe
 
-
 if go version; then
     echo "Go is installed, let's proceed!"
 else
@@ -377,6 +376,14 @@ if [[ "$USE_AGGREGATOR" = true ]]; then
     curl http://localhost:7206/api/v1/json/report -X POST -d '{"metrics":[{"type":"gauge","value":42,"tags":{"__name__":"foo_metric","foo":"bar"}}]}'
 fi
 
-docker-compose -f docker-compose-atm.yml up $DOCKER_ARGS otel_collector
-docker-compose -f docker-compose-atm.yml up $DOCKER_ARGS synthetic_trace_generator
-docker-compose -f docker-compose-atm.yml up $DOCKER_ARGS jaeger_query
+if [ ! "$NOOTELCOL" = true ]; then
+    docker-compose -f docker-compose-atm.yml up $DOCKER_ARGS otel_collector
+fi
+
+if [ ! "$NOSYNTH" = true ]; then
+    docker-compose -f docker-compose-atm.yml up $DOCKER_ARGS synthetic_trace_generator
+fi
+
+if [ ! "$NOQUERY" = true ]; then
+    docker-compose -f docker-compose-atm.yml up $DOCKER_ARGS jaeger_query
+fi

@@ -201,7 +201,7 @@
     {
       "service" : "frontend",
       "route" : "/checkout",
-      "tracesPerHour" : 3600
+      "tracesPerHour" : 360
     }
   ]
 }

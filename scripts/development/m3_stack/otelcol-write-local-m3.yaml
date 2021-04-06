@@ -85,4 +85,4 @@ service:
       exporters: [prometheus]
     metrics:
       receivers: [prometheus]
-      exporters: [prometheusremotewrite]
+      exporters: [prometheusremotewrite, logging]
