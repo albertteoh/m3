@@ -195,16 +195,16 @@ curl -vvvsSf -X POST localhost:7201/api/v1/services/m3db/namespace -d '{
     "snapshotEnabled": true,
     "repairEnabled": false,
     "retentionOptions": {
-      "retentionPeriodDuration": "30m",
-      "blockSizeDuration": "10m",
-      "bufferFutureDuration": "5m",
-      "bufferPastDuration": "5m",
+      "retentionPeriodDuration": "3h",
+      "blockSizeDuration": "1h",
+      "bufferFutureDuration": "30m",
+      "bufferPastDuration": "30m",
       "blockDataExpiry": true,
-      "blockDataExpiryAfterNotAccessPeriodDuration": "5m"
+      "blockDataExpiryAfterNotAccessPeriodDuration": "30m"
     },
     "indexOptions": {
       "enabled": true,
-      "blockSizeDuration": "10m"
+      "blockSizeDuration": "1h"
     },
     "aggregationOptions": {
       "aggregations": [
@@ -230,10 +230,10 @@ curl -vvvsSf -X POST localhost:7201/api/v1/services/m3db/namespace -d '{
     "retentionOptions": {
       "retentionPeriodDuration": "24h",
       "blockSizeDuration": "2h",
-      "bufferFutureDuration": "10m",
-      "bufferPastDuration": "10m",
+      "bufferFutureDuration": "30m",
+      "bufferPastDuration": "30m",
       "blockDataExpiry": true,
-      "blockDataExpiryAfterNotAccessPeriodDuration": "5m"
+      "blockDataExpiryAfterNotAccessPeriodDuration": "15m"
     },
     "indexOptions": {
       "enabled": true,
