@@ -62,7 +62,7 @@ processors:
     dimensions:
     - name: http.method
       default: GET
-    - name: http.status_code
+    - name: foo
 
 extensions:
   health_check:

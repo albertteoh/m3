@@ -34,45 +34,45 @@ clusters:
               endpoints:
                 - m3db_seed:2379
 
-downsample:
-  remoteAggregator:
-    client:
-      type: m3msg
-      m3msg:
-        producer:
-          writer:
-            topicName: aggregator_ingest
-            topicServiceOverride:
-              zone: embedded
-              environment: default_env
-            placement:
-              isStaged: true
-            placementServiceOverride:
-              namespaces:
-                placement: /placement
-            connection:
-              numConnections: 32
-            messagePool:
-              size: 16384
-              watermark:
-                low: 0.2
-                high: 0.5
-
-ingest:
-  ingester:
-    workerPoolSize: 10000
-    opPool:
-      size: 10000
-    retry:
-      maxRetries: 3
-      jitter: true
-    logSampleRate: 0.01
-  m3msg:
-    server:
-      listenAddress: "0.0.0.0:7507"
-      retry:
-        maxBackoff: 10s
-        jitter: true
+                  #downsample:
+                  #  remoteAggregator:
+                  #    client:
+                  #      type: m3msg
+                  #      m3msg:
+                  #        producer:
+                  #          writer:
+                  #            topicName: aggregator_ingest
+                  #            topicServiceOverride:
+                  #              zone: embedded
+                  #              environment: default_env
+                  #            placement:
+                  #              isStaged: true
+                  #            placementServiceOverride:
+                  #              namespaces:
+                  #                placement: /placement
+                  #            connection:
+                  #              numConnections: 32
+                  #            messagePool:
+                  #              size: 16384
+                  #              watermark:
+                  #                low: 0.2
+                  #                high: 0.5
+                  #
+                  #ingest:
+                  #  ingester:
+                  #    workerPoolSize: 10000
+                  #    opPool:
+                  #      size: 10000
+                  #    retry:
+                  #      maxRetries: 3
+                  #      jitter: true
+                  #    logSampleRate: 0.01
+                  #  m3msg:
+                  #    server:
+                  #      listenAddress: "0.0.0.0:7507"
+                  #      retry:
+                  #        maxBackoff: 10s
+                  #        jitter: true
 
 carbon:
   ingester:

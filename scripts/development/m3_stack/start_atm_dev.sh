@@ -195,16 +195,16 @@ curl -vvvsSf -X POST localhost:7201/api/v1/services/m3db/namespace -d '{
     "snapshotEnabled": true,
     "repairEnabled": false,
     "retentionOptions": {
-      "retentionPeriodDuration": "3h",
-      "blockSizeDuration": "1h",
-      "bufferFutureDuration": "30m",
-      "bufferPastDuration": "30m",
+      "retentionPeriodDuration": "30m",
+      "blockSizeDuration": "30m",
+      "bufferFutureDuration": "10m",
+      "bufferPastDuration": "10m",
       "blockDataExpiry": true,
-      "blockDataExpiryAfterNotAccessPeriodDuration": "30m"
+      "blockDataExpiryAfterNotAccessPeriodDuration": "10m"
     },
     "indexOptions": {
       "enabled": true,
-      "blockSizeDuration": "1h"
+      "blockSizeDuration": "30m"
     },
     "aggregationOptions": {
       "aggregations": [
@@ -218,52 +218,52 @@ curl -vvvsSf -X POST localhost:7201/api/v1/services/m3db/namespace -d '{
     }
   }
 }'
-curl -vvvsSf -X POST localhost:7201/api/v1/services/m3db/namespace -d '{
-  "name": "metrics_30s_24h",
-  "options": {
-    "bootstrapEnabled": true,
-    "flushEnabled": true,
-    "writesToCommitLog": true,
-    "cleanupEnabled": true,
-    "snapshotEnabled": true,
-    "repairEnabled": false,
-    "retentionOptions": {
-      "retentionPeriodDuration": "24h",
-      "blockSizeDuration": "2h",
-      "bufferFutureDuration": "30m",
-      "bufferPastDuration": "30m",
-      "blockDataExpiry": true,
-      "blockDataExpiryAfterNotAccessPeriodDuration": "15m"
-    },
-    "indexOptions": {
-      "enabled": true,
-      "blockSizeDuration": "2h"
-    },
-    "aggregationOptions": {
-      "aggregations": [
-        {
-          "aggregated": true,
-          "attributes": {
-            "resolutionDuration": "30s"
-          }
-        }
-      ]
-    },
-    "stagingState": {
-      "status": "INITIALIZING"
-    }
-  }
-}'
+#curl -vvvsSf -X POST localhost:7201/api/v1/services/m3db/namespace -d '{
+#  "name": "metrics_30s_24h",
+#  "options": {
+#    "bootstrapEnabled": true,
+#    "flushEnabled": true,
+#    "writesToCommitLog": true,
+#    "cleanupEnabled": true,
+#    "snapshotEnabled": true,
+#    "repairEnabled": false,
+#    "retentionOptions": {
+#      "retentionPeriodDuration": "24h",
+#      "blockSizeDuration": "2h",
+#      "bufferFutureDuration": "30m",
+#      "bufferPastDuration": "30m",
+#      "blockDataExpiry": true,
+#      "blockDataExpiryAfterNotAccessPeriodDuration": "15m"
+#    },
+#    "indexOptions": {
+#      "enabled": true,
+#      "blockSizeDuration": "2h"
+#    },
+#    "aggregationOptions": {
+#      "aggregations": [
+#        {
+#          "aggregated": true,
+#          "attributes": {
+#            "resolutionDuration": "30s"
+#          }
+#        }
+#      ]
+#    },
+#    "stagingState": {
+#      "status": "INITIALIZING"
+#    }
+#  }
+#}'
 echo "Done initializing namespaces"
 
 echo "Validating namespace"
 [ "$(curl -sSf localhost:7201/api/v1/services/m3db/namespace | jq .registry.namespaces.metrics_0_30m.indexOptions.enabled)" == true ]
-[ "$(curl -sSf localhost:7201/api/v1/services/m3db/namespace | jq .registry.namespaces.metrics_30s_24h.indexOptions.enabled)" == true ]
+#[ "$(curl -sSf localhost:7201/api/v1/services/m3db/namespace | jq .registry.namespaces.metrics_30s_24h.indexOptions.enabled)" == true ]
 echo "Done validating namespace"
 
 echo "Waiting for namespaces to be ready"
 [ $(curl -sSf -X POST localhost:7201/api/v1/services/m3db/namespace/ready -d "{ \"name\": \"metrics_0_30m\", \"force\": true }" | grep -c true) -eq 1 ]
-[ $(curl -sSf -X POST localhost:7201/api/v1/services/m3db/namespace/ready -d "{ \"name\": \"metrics_30s_24h\", \"force\": true }" | grep -c true) -eq 1 ]
+#[ $(curl -sSf -X POST localhost:7201/api/v1/services/m3db/namespace/ready -d "{ \"name\": \"metrics_30s_24h\", \"force\": true }" | grep -c true) -eq 1 ]
 echo "Done waiting for namespaces to be ready"
 
 echo "Initializing topology"
