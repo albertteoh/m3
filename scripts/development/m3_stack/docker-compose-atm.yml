@@ -12,8 +12,7 @@ services:
   otel_collector:
     networks:
       - backend
-    #image: otel/opentelemetry-collector-contrib:latest
-    image: otelcontribcol:latest
+    image: otel/opentelemetry-collector-contrib:latest
     volumes:
       - "./otelcol-write-local-m3.yaml:/etc/otelcol/otelcol-write-local-m3.yaml"
     command: --config /etc/otelcol/otelcol-write-local-m3.yaml
